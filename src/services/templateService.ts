@@ -1,51 +1,34 @@
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 import type { Template, ProfileConfig } from '../types'
 
 export const templateService = {
   async getTemplateByShareId(shareId: string): Promise<Template | null> {
-    const { data, error } = await supabase
-      .from('templates')
-      .select('*')
-      .eq('share_id', shareId)
-      .maybeSingle()
-
-    if (error) {
+    try {
+      return await api.getTemplateByShareId(shareId)
+    } catch (error: any) {
       console.error('Error fetching template:', error)
       throw new Error(`Failed to fetch template: ${error.message}`)
     }
-
-    return data
   },
 
   async getTemplatesByUserId(userId: string): Promise<Template[]> {
-    const { data, error } = await supabase
-      .from('templates')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
+    try {
+      const templates = await api.getTemplates({ user_id: userId })
+      return templates || []
+    } catch (error: any) {
       console.error('Error fetching templates:', error)
       throw new Error(`Failed to fetch templates: ${error.message}`)
     }
-
-    return data || []
   },
 
   async getPublicTemplates(limit = 20): Promise<Template[]> {
-    const { data, error } = await supabase
-      .from('templates')
-      .select('*')
-      .eq('is_public', true)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (error) {
+    try {
+      const templates = await api.getTemplates({ is_public: 'true' })
+      return (templates || []).slice(0, limit)
+    } catch (error: any) {
       console.error('Error fetching public templates:', error)
       throw new Error(`Failed to fetch public templates: ${error.message}`)
     }
-
-    return data || []
   },
 
   async createTemplate(
@@ -56,65 +39,46 @@ export const templateService = {
     description?: string,
     isPublic = false
   ): Promise<Template> {
-    const shareId = this.generateShareId()
-
-    const { data, error } = await supabase
-      .from('templates')
-      .insert({
+    try {
+      return await api.createTemplate({
         user_id: userId,
         profile_id: profileId,
         name,
         description,
         config,
-        share_id: shareId,
         is_public: isPublic,
-        created_at: new Date().toISOString(),
       })
-      .select()
-      .single()
-
-    if (error) {
+    } catch (error: any) {
       console.error('Error creating template:', error)
       throw new Error(`Failed to create template: ${error.message}`)
     }
-
-    return data
   },
 
   async updateTemplate(templateId: string, updates: Partial<Template>): Promise<Template> {
-    const { data, error } = await supabase
-      .from('templates')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', templateId)
-      .select()
-      .single()
-
-    if (error) {
+    try {
+      return await api.updateTemplate(templateId, updates)
+    } catch (error: any) {
       console.error('Error updating template:', error)
       throw new Error(`Failed to update template: ${error.message}`)
     }
-
-    return data
   },
 
   async deleteTemplate(templateId: string): Promise<void> {
-    const { error } = await supabase.from('templates').delete().eq('id', templateId)
-
-    if (error) {
+    try {
+      await api.deleteTemplate(templateId)
+    } catch (error: any) {
       console.error('Error deleting template:', error)
       throw new Error(`Failed to delete template: ${error.message}`)
     }
   },
 
   async incrementTemplateViews(shareId: string): Promise<void> {
-    const { error } = await supabase.rpc('increment_template_views', {
-      template_share_id: shareId,
-    })
-
-    if (error) {
+    try {
+      const template = await api.getTemplateByShareId(shareId)
+      if (template?._id) {
+        await api.incrementTemplateViews(template._id)
+      }
+    } catch (error: any) {
       console.error('Error incrementing template views:', error)
     }
   },
