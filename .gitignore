@@ -3,4 +3,5 @@ dist
 .DS_Store
 *.log
 views.db
+.env
 
